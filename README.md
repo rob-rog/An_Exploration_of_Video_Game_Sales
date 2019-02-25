@@ -1,0 +1,2 @@
+# VideoGameSales_Viz
+An exploration of a video games sales dataset using r.
