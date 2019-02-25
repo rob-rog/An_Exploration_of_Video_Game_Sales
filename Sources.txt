@@ -1,0 +1,1 @@
+Most of the information I looked up was from the first few results in Google. Those tended to be stackoverflow.com, previous udacity lessons, and github.com.

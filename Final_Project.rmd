@@ -1,0 +1,2059 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+Video Game Sales by Robert Rogness
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(gridExtra)
+library(ggpubr)
+library(dplyr)
+library(GGally)
+library(grid)
+library(stringr)
+library(RColorBrewer)
+library(grDevices)
+library(gtable)
+
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_Data}
+# Load the Data
+vgsales <- read.csv('vgsales.csv')
+```
+
+I will be going over a dataset of video game sales. I downloaded the data from 
+kaggle ( [https://www.kaggle.com/gregorut/videogamesales](https://www.kaggle.com/gregorut/videogamesales)). The data was last updated on October 26, 2016.
+
+# Univariate Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots1}
+#show structure of dataframe
+str(vgsales)
+```
+
+Right off the bat I see a problem with this dataset. The dataset contains 16,598
+games. A quick Google search finds (as of Feb 1, 2017:
+[www.neogaf.com/threads/number-of-games-for-each-console.1339962/](www.neogaf.com/threads/number-of-games-for-each-console.1339962/))
+that there has been over 60,000 games released. Now, the accuracy of a number
+pulled off of a web forum, which in turn was pulled off of Wikipedia (according
+to the forum poster), could easily be incorrect. However, 60,000 is a large jump
+from 16,598. Maybe this dataset does not include all platforms and regions.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots2}
+# Summary of the Platform variable
+summary(vgsales$Platform)
+```
+
+First thing I notice is that there are two platforms that look like years (the 
+2600 is just the Atari 2600.). I think I have some data to clean up.
+
+A quick search online shows these numbers are not correct. For example, on Steam
+(a digital distribution platform for PC games), on October 26, 2016, they had 
+10,079 PC games (I got this number by going to steams search page. Then I 
+clicked on the 'Games' type under the 'Show selected types' filter category. 
+Then I sorted by 'Release date'. Then I went to the page where 'Oct 26, 2016' 
+started, which was page 605 for me. Each page lists 25 games. There was a total
+of 1,009 pages. So I subtracted 606 from 1,008 and multiplied the result by 25. 
+I then added the number of games on page 1,009 and the number of games released 
+in October 26, 2016 on page 605.). The dataset's 960 PC titles number is far 
+short of the over 10,000 games on Steam, which does not contain all PC games 
+ever sold.
+
+Another easier to confirm example is the SNES (Super Nintendo Entertainment
+System). According to Wikipedia ( [en.wikipedia.org/wiki/List_of_Super_Nintendo_Entertainment_System_games](en.wikipedia.org/wiki/List_of_Super_Nintendo_Entertainment_System_games)),
+there were '1757 official releases, 721 were released in North America, 517 in 
+Europe, 1,447 in Japan'. Any of those numbers is much larger than the dataset's
+239. Maybe the dataset is limited by some arbitrary year.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots3}
+#List of each value type in the Year variable.
+levels(vgsales$Year)
+```
+
+So there does seem to be an arbitrary date limit (1980 to 2020?). The first game
+console, the Magnavox Odyssey, was released in 1972. I don't know if this 
+dataset is a true sample, but I will treat it as such, since it is obviously not
+a population.
+
+There also seems to be some problems with the dataset. This dataset was made in 
+2016, yet there are games from 2017 and 2020! I also think there are two rows 
+with values shifted to the left. I would like to take a look at the full rows 
+for these strange values.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots4}
+#look at rows with strange data
+vgsales[vgsales$Year == '2017' | vgsales$Year == '2020' | 
+          vgsales$Year == 'Adventure' | vgsales$Year == 'Role-Playing', ]
+```
+
+Like I thought. There seems to be two rows where the 'Platform' data merged with
+the 'Name' data. This seems to have caused everything to the right to shift 
+left. 
+
+Looking at the sales numbers, the 2017 game years seem to be the planned release
+date for the US market. On October 26, 2016, those three games seemed to have 
+been released in Japan, but not yet outside Japan.
+
+The 2020 game seems to be a mistake. I Googled the title and it seems to have 
+been released in 2009.
+
+So I am going to have to fix the 2020 year and fix the two broken rows.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots5}
+#fix rows
+vgsales[5958, 4] <- '2009'
+
+vgsales$Name <- as.character(vgsales$Name)
+
+vgsales[4979, ] <- c(4980, 'Phantasy Star', 'DS', '2008', 'Role-Playing', 
+                     'Sega', 0.16, 0, 0.2, 0.01, 0.38)
+
+vgsales[11594, ] <- c(11595, 'Boku no Natsuyasumi 3: Hokkoku Hen: Chiisana Boku no Dai Sougen', 'PS3', '2007', 'Adventure', 'Sony Computer Entertainment', 0, 0, 0.08, 0, 0.08)
+
+vgsales$Name <- as.factor(vgsales$Name)
+
+vgsales$Rank <- as.integer(vgsales$Rank)
+vgsales$Year <- as.integer(as.character(vgsales$Year))
+vgsales$NA_Sales <- as.numeric(vgsales$NA_Sales)
+vgsales$EU_Sales <- as.numeric(vgsales$EU_Sales)
+vgsales$JP_Sales <- as.numeric(vgsales$JP_Sales)
+vgsales$Other_Sales <- as.numeric(vgsales$Other_Sales)
+vgsales$Global_Sales <- as.numeric(vgsales$Global_Sales)
+
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots6}
+# Check if variables that should be num are num, that should be int are int or
+# that should be Factor are Factor.
+str(vgsales)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots7}
+# Summary of the Platform variable.
+summary(vgsales$Platform)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots8}
+# Checking the summary of the Year variable again.
+summary(vgsales$Year)
+```
+
+This looks much better. Now I can create some plots.
+
+```{r echo=FALSE, Univariate_Plots9}
+# Histogram of the Platform variable.
+ggplot(data = vgsales, aes(x = Platform)) +
+  geom_bar() +
+  coord_flip()
+```
+
+The first thing that sticks out is how many games the Nintendo DS and Sony PS2 
+have. They are leaps and bounds above every other system. This plot would be
+easier to read if the systems were grouped by company and ordered by age. I 
+would also like to create a new variable that shows the maker of each platform.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots9.1}
+#making a new variable called Platform_makers
+vgsales$Platform_makers <- vgsales$Platform
+
+vgsales$Platform_makers <- as.character(vgsales$Platform_makers)
+
+vgsales$Platform_makers[vgsales$Platform_makers == 'NES' | 
+                          vgsales$Platform_makers == 'SNES' | 
+                          vgsales$Platform_makers == 'N64' | 
+                          vgsales$Platform_makers == 'GC' | 
+                          vgsales$Platform_makers == 'Wii' | 
+                          vgsales$Platform_makers == 'WiiU' | 
+                          vgsales$Platform_makers == 'GB' | 
+                          vgsales$Platform_makers == 'GBA' | 
+                          vgsales$Platform_makers == 'DS' | 
+                          vgsales$Platform_makers == '3DS'] <- 'Nintendo'
+
+vgsales$Platform_makers[vgsales$Platform_makers == 'GEN' | 
+                          vgsales$Platform_makers == 'SCD' | 
+                          vgsales$Platform_makers == 'SAT' | 
+                          vgsales$Platform_makers == 'DC' | 
+                          vgsales$Platform_makers == 'GG'] <- 'Sega'
+
+vgsales$Platform_makers[vgsales$Platform_makers == 'PS' | 
+                          vgsales$Platform_makers == 'PS2' | 
+                          vgsales$Platform_makers == 'PS3' | 
+                          vgsales$Platform_makers == 'PS4' | 
+                          vgsales$Platform_makers == 'PSP' | 
+                          vgsales$Platform_makers == 'PSV'] <- 'Sony'
+
+vgsales$Platform_makers[vgsales$Platform_makers == 'XB' | 
+                          vgsales$Platform_makers == 'X360' | 
+                          vgsales$Platform_makers == 'XOne'] <- 'Microsoft'
+
+vgsales$Platform_makers[vgsales$Platform_makers == 'TG16' | 
+                          vgsales$Platform_makers == 'PCFX' | 
+                          vgsales$Platform_makers == '2600' | 
+                          vgsales$Platform_makers == '3DO' | 
+                          vgsales$Platform_makers == 'NG' | 
+                          vgsales$Platform_makers == 'PC' | 
+                          vgsales$Platform_makers == 'WS'] <- 'Other'
+
+vgsales$Platform_makers <- as.factor(vgsales$Platform_makers)
+
+# Histogram of the new Platform_makers variable.
+qplot(vgsales$Platform_makers) +
+  scale_y_continuous(breaks = seq(0, 10000, 500))
+```
+
+I find these numbers surprising. Despite Sony being a relatively new player on 
+the scene, they lead with the most number of games on their systems. I am most 
+surprised with Sega being so low. I quick use of Google tells me that they had 
+at least more than 1,000 games on their systems. I would like to look at 
+handheld platforms vs TV platforms vs PC. I will have to make another variable.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots9.2}
+#making a new variable called Platform_types
+vgsales$Platform_types <- vgsales$Platform
+
+vgsales$Platform_types <- as.character(vgsales$Platform_types)
+
+vgsales$Platform_types[vgsales$Platform_types == 'GB' | 
+                         vgsales$Platform_types == 'GBA' | 
+                         vgsales$Platform_types == 'DS' | 
+                         vgsales$Platform_types == '3DS' | 
+                         vgsales$Platform_types == 'GG' | 
+                         vgsales$Platform_types == 'PSP' | 
+                         vgsales$Platform_types == 'PSV' | 
+                         vgsales$Platform_types == 'WS'] <- 'Handheld'
+
+vgsales$Platform_types[vgsales$Platform_types == 'TG16' | 
+                         vgsales$Platform_types == 'PCFX' | 
+                         vgsales$Platform_types == '2600' | 
+                         vgsales$Platform_types == '3DO' | 
+                         vgsales$Platform_types == 'NG' | 
+                         vgsales$Platform_types == 'PS' | 
+                         vgsales$Platform_types == 'PS2' | 
+                         vgsales$Platform_types == 'PS3' | 
+                         vgsales$Platform_types == 'PS4' | 
+                         vgsales$Platform_types == 'GEN' | 
+                         vgsales$Platform_types == 'SCD' | 
+                         vgsales$Platform_types == 'SAT' | 
+                         vgsales$Platform_types == 'DC' | 
+                         vgsales$Platform_types == 'NES' | 
+                         vgsales$Platform_types == 'SNES' | 
+                         vgsales$Platform_types == 'N64' | 
+                         vgsales$Platform_types == 'GC' | 
+                         vgsales$Platform_types == 'Wii' | 
+                         vgsales$Platform_types == 'WiiU' | 
+                         vgsales$Platform_types == 'XB' | 
+                         vgsales$Platform_types == 'X360' | 
+                         vgsales$Platform_types == 'XOne'] <- 'TV_platform'
+
+vgsales$Platform_types <- as.factor(vgsales$Platform_types)
+
+# Histogram of the new Platform_types variable.
+qplot(vgsales$Platform_types) +
+  scale_y_continuous(breaks = seq(0, 10000, 500))
+```
+
+As said before, I doubt PC games are so few compared to TV and handheld
+platforms.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots10}
+# Histogram of the Year variable.
+qplot(vgsales$Year)
+```
+
+There were really a lot of games made in the years between 2005 to 2015.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots11}
+# Histogram of the Genre variable.
+qplot(vgsales$Genre) +
+  coord_flip()
+```
+
+The fact that action and sports are far and above the most common genres is not 
+exactly unexpected. I would like to see the sales of the genres and the 
+platforms they appear on.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots12}
+# Summary of the top 20 values from the Publisher variable.
+summary(vgsales$Publisher, maxsum = 20)
+```
+
+There are far too many publishers to do a decent plot. There seems to be only a
+few publishers that make up the majority of the games.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots13}
+# Total number of game publishers in the Publisher variable
+length(levels(vgsales$Publisher))
+```
+
+There are 581 different publishers. Short of taking the top 10 or 20 and putting
+the rest in an 'other' category, I'm not sure what else there is to do at the 
+moment. Though I would like to see how the sales of each publisher compares to 
+each other. I would also like to see if there is a genre preference among each
+publisher.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots15}
+# Making a new variable of the top 15 publishers called Top_Publishers.
+vgsales$Top_Publishers <- vgsales$Publisher
+
+vgsales$Top_Publishers <- as.character(vgsales$Top_Publishers)
+
+vgsales$Top_Publishers[vgsales$Top_Publishers != 'Electronic Arts' & 
+                         vgsales$Top_Publishers != 'Activision' & 
+                         vgsales$Top_Publishers != 'Namco Bandai Games' & 
+                         vgsales$Top_Publishers != 'Ubisoft' & 
+                         vgsales$Top_Publishers != 'Konami Digital Entertainment' & 
+                         vgsales$Top_Publishers != 'THQ' & 
+                         vgsales$Top_Publishers != 'Nintendo' & 
+                         vgsales$Top_Publishers != 'Sony Computer Entertainment' & 
+                         vgsales$Top_Publishers != 'Sega' & 
+                         vgsales$Top_Publishers != 'Take-Two Interactive' & 
+                         vgsales$Top_Publishers != 'Capcom' & 
+                         vgsales$Top_Publishers != 'Atari' & 
+                         vgsales$Top_Publishers != 'Tecmo Koei' & 
+                         vgsales$Top_Publishers != 'Square Enix' & 
+                         vgsales$Top_Publishers != 'Warner Bros. Interactive Entertainment'] <- 'Other 564 Publishers'
+
+vgsales$Top_Publishers <- as.factor(vgsales$Top_Publishers)
+
+# Histogram of the new Top_Publishers variable.
+qplot(vgsales$Top_Publishers)+
+  coord_flip()
+```
+
+I created a new variable that renames all the publishers 'Other 564 Publishers'
+unless they are in the top 15. The top 15 are the top 15 publishers from the
+previous summary list. However, the 'Other' takes up a large amount of space on
+this list.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots16}
+# Histogram of the Top_Publishers variable without the 'Other 564 Publishers'
+# value.
+qplot(vgsales$Top_Publishers[vgsales$Top_Publishers != 'Other 564 Publishers'])+
+  coord_flip() +
+  xlab("Top_Publishers")
+```
+
+The top nine on this plot have a large number of games compared to the rest.
+
+NA_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots17}
+# Summary of the NA_Sales variable.
+summary(vgsales$NA_Sales)
+```
+
+JP_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots18}
+# Summary of the JP_Sales variable.
+summary(vgsales$JP_Sales)
+```
+
+EU_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots19}
+# Summary of the EU_Sales variable.
+summary(vgsales$EU_Sales)
+```
+
+Other_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots20}
+# Summary of the Other_Sales variable.
+summary(vgsales$Other_Sales)
+```
+
+Global_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots21}
+# Summary of the Global_Sales variable.
+summary(vgsales$Global_Sales)
+```
+
+The fact that there is no region (other than global) that had all games released
+in it really pushes the mean and median down. A more accurate view would be to 
+make a summary of only games released in that region. However, it could be that 
+some 0 sales were just so small that it rounded to 0. I really need a more 
+accurate dataset. For now, I will assume (this is a big assumption on my part) 
+that a 0 means it was not or has not been released in the corresponding region.
+
+NA_Sales
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots22}
+# Summary of NA_Sales variable excluding values of 0.
+summary(vgsales[vgsales$NA_Sales > 0, 7])
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots23}
+# Histogram of NA_Sales variable excluding values of 0.
+qplot(vgsales[vgsales$NA_Sales > 0, 7])
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots24}
+# Histogram of NA_Sales variable excluding values of 0 and with a bin width of
+# 0.01.
+qplot(vgsales[vgsales$NA_Sales > 0, 7], 
+      binwidth = 0.01)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots25}
+# Histogram of NA_Sales variable excluding values of 0, excluding values above
+# the 99% quantile and with a bin width of 0.01.
+qplot(vgsales[vgsales$NA_Sales > 0 & 
+                vgsales$NA_Sales < quantile(vgsales$NA_Sales, 0.99), 7], 
+      binwidth = 0.01) +
+  xlab('NA_Sales')
+```
+
+This 'NA_Sales' histogram is really right skewed, which is to be expected. Few 
+games reach even one million sales. Let's look at all the sales data together.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots26}
+#Simple histogram of each regions' sales.
+p1 <- qplot(vgsales[vgsales$NA_Sales > 0, 7], 
+            binwidth = 0.01) +
+  xlab('NA_Sales')
+p2 <- qplot(vgsales[vgsales$EU_Sales > 0, 8], 
+            binwidth = 0.01) +
+  xlab('EU_Sales')
+p3 <- qplot(vgsales[vgsales$JP_Sales > 0, 9], 
+            binwidth = 0.01) +
+  xlab('JP_Sales')
+p4 <- qplot(vgsales[vgsales$Other_Sales > 0, 10], 
+            binwidth = 0.01) +
+  xlab('Other_Sales')
+p5 <- qplot(vgsales[vgsales$Global_Sales > 0, 11], 
+            binwidth = 0.01) +
+  xlab('Global_Sales')
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
+```
+
+These plots have outliers that made it difficult to see any details.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots27}
+#covert previous plots to log10.
+p1 <- qplot(vgsales[vgsales$NA_Sales > 0, 7], 
+            binwidth = 0.01) +
+  scale_x_log10() +
+  xlab('NA_Sales')
+p2 <- qplot(vgsales[vgsales$EU_Sales > 0, 8], 
+            binwidth = 0.01) +
+  scale_x_log10() +
+  xlab('EU_Sales')
+p3 <- qplot(vgsales[vgsales$JP_Sales > 0, 9], 
+            binwidth = 0.01) +
+  scale_x_log10() +
+  xlab('JP_Sales')
+p4 <- qplot(vgsales[vgsales$Other_Sales > 0, 10], 
+            binwidth = 0.01) +
+  scale_x_log10() +
+  xlab('Other_Sales')
+p5 <- qplot(vgsales[vgsales$Global_Sales > 0, 11], 
+            binwidth = 0.01) +
+  scale_x_log10() +
+  xlab('Global_Sales')
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
+```
+
+I transformed the plots using a log10 transformation. This was better, but I
+thought just looking at the bottom 95% of the sales data might be better.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plots28}
+# Exclude top 5 percent of sales data.
+p1 <- qplot(vgsales[vgsales$NA_Sales > 0 & 
+                      vgsales$NA_Sales < quantile(vgsales$NA_Sales, 0.95), 7], 
+            binwidth = 0.01) +
+  xlab('NA_Sales')
+p2 <- qplot(vgsales[vgsales$EU_Sales > 0 & 
+                      vgsales$EU_Sales < quantile(vgsales$EU_Sales, 0.95), 8], 
+            binwidth = 0.01) +
+  xlab('EU_Sales')
+p3 <- qplot(vgsales[vgsales$JP_Sales > 0 & 
+                      vgsales$JP_Sales < quantile(vgsales$JP_Sales, 0.95), 9], 
+            binwidth = 0.01) +
+  xlab('JP_Sales')
+p4 <- qplot(vgsales[vgsales$Other_Sales > 0 & 
+                      vgsales$Other_Sales < quantile(vgsales$Other_Sales, 0.95), 10], 
+            binwidth = 0.01) +
+  xlab('Other_Sales')
+p5 <- qplot(vgsales[vgsales$Global_Sales > 0 & 
+                      vgsales$Global_Sales < quantile(vgsales$Global_Sales, 0.95), 11], 
+            binwidth = 0.01) +
+  xlab('Global_Sales')
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 3)
+```
+
+These histograms show basically the same pattern as one another. Though 
+the size of the slop depends on the region.
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+
+There are 16,598 games in this dataset. The 11 variables are Rank, Name, 
+Platform, Year, Genre, Publisher, NA_Sales, EU_Sales, JP_Sales, Other_Sales, and
+Global_Sales. I create 3 additional variables: Platform_makers, Platform_types 
+and Top_Publishers. Rank and Year are integers, Name, Genre, Publisher, 
+Platform_makers, Platform_types and Top_Publishers are factors and the remaining
+variables are numeric.
+
+### What is/are the main feature(s) of interest in your dataset?
+
+My main interests in this dataset are the various sales figures.
+
+### What other features in the dataset do you think will help support your \
+investigation into your feature(s) of interest?
+
+Platform, year and genre would be interesting to look at along with the sales 
+data. If I could find a way to use publisher data, it could be interesting. But 
+it would have to be changed to make it more usable. There are far too many
+different publishers.
+
+### Did you create any new variables from existing variables in the dataset?
+
+I created a top 15 publishers by number of games published variable. I also
+created a variable of platform makers and another variable of platform type.
+
+### Of the features you investigated, were there any unusual distributions? \
+Did you perform any operations on the data to tidy, adjust, or change the form \
+of the data? If so, why did you do this?
+
+I did not notice any unusual distributions.
+
+There were some obvious errors in the data that required fixing (though I am 
+sure there are some or many not so obvious errors). I changed a year that said 
+2020 when it should have said 2009. Some errors in the cvs file caused a couple
+of commas to go unnoticed. So I had to manually shift all the data to the right.
+
+
+# Bivariate Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height= 10, fig.width= 10, Bivariate_Plots0}
+# Create and show a matrix of plots.
+vgsales_nn <- vgsales
+
+vgsales_nn$Name <- NULL
+vgsales_nn$Publisher <- NULL
+vgsales_nn$Platform <- NULL
+vgsales_nn$Rank <- NULL
+vgsales_nn$Top_Publishers <- NULL
+
+ggpairs(vgsales_nn)
+```
+
+A matrix of plots on all 14 variables would be too cramped and unreadable, so I
+removed some variables and kept the variables that would be most interesting to
+see in a matrix of plots.
+
+It seems that global sales are very correlated with North American and European
+sales. While Japan seems to be going its own way with no strong correlations.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots0.1}
+# A closer look at regional sales' correlation to global sales
+p1 <- ggplot(aes(x = Global_Sales, y = NA_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth()
+
+p2 <- ggplot(aes(x = Global_Sales, y = EU_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth()
+
+p3 <- ggplot(aes(x = Global_Sales, y = JP_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth()
+
+p4 <- ggplot(aes(x = Global_Sales, y = Other_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+North American and EU sales seem to correlate well with global sales. But 
+'Other_Sales' and especially Japan's sales are really spread out.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots1}
+# Create a more readable platform list
+platform_order_y <- c('WS', 'PC', 'NG', '3DO', '2600', 'PCFX', 'TG16', 'XOne', 
+                      'X360', 'XB', 'PSV', 'PSP', 'PS4', 'PS3', 'PS2', 'PS', 
+                      'GG', 'DC', 'SAT', 'SCD', 'GEN', '3DS', 'DS', 'GBA', 'GB',
+                      'WiiU', 'Wii', 'GC', 'N64', 'SNES', 'NES')
+platform_order_x <- c('NES', 'SNES', 'N64', 'GC', 'Wii', 'WiiU', 'GB', 'GBA', 
+                      'DS', '3DS', 'GEN', 'SCD', 'SAT', 'DC', 'GG', 'PS', 'PS2',
+                      'PS3', 'PS4', 'PSP', 'PSV', 'XB', 'X360', 'XOne', 'TG16', 
+                      'PCFX', '2600', '3DO', 'NG', 'PC', 'WS')
+
+
+platform_names <- c('GC' = 'GameCube', 'GB' = 'Game Boy', 
+                    'GEN' = 'Sega Genesis', 'SCD' = 'Sega CD', 'SAT' = 'Saturn',
+                    'DC' = 'Dreamcast', 'GG' = 'Game Gear', 
+                    'PS' = 'Sony PlayStation', 'PSV' = 'PS VIta', 
+                    'XB' = 'Microsoft Xbox', 'TG16' = 'TurboGrafx 16', 
+                    '2600' = 'Atari 2600', 'NG' = 'Neo Geo', 
+                    'WS' = 'WonderSwan', 'NES', 'SNES', 'N64', 'Wii', 'WiiU',
+                    'GBA', 'DS', '3DS', 'PS2', 'PS3', 'PS4', 'PSP',
+                    'X360', 'XOne', 'PCFX', '3DO', 'PC')
+
+# Plot of Platform vs. Year.
+qplot(y = vgsales$Platform, x = vgsales$Year) +
+  scale_y_discrete(limits = platform_order_y, labels = platform_names)
+```
+
+This is a good look at the lifespan of each platform. Though it shows another
+problem with the dataset. The Nintendo DS was not released until 2004, yet there
+is a game for it in the mid-1980s.When searching for the title on Google, the 
+top results give the same mistaken date of 1986.
+
+I would also like to see the number of games for each year via dot size.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots2}
+# Plot of the total Global_Sales for each platform.
+ggplot(aes(x = Platform, y = Global_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+  
+```
+
+The only surprising thing here is the extent to which the PS2 out sold the other
+platforms. I wonder how each platform does regionally.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, Bivariate_Plots3}
+# Plots of the total of each sales type for each platform with the limits set
+# 602 for each.
+p1 <- ggplot(aes(x = Platform, y = NA_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  scale_y_continuous(limits = c(0, 602)) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Platform, y = EU_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  scale_y_continuous(limits = c(0, 602)) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Platform, y = JP_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  scale_y_continuous(limits = c(0, 602)) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Platform, y = Other_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  scale_y_continuous(limits = c(0, 602)) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+This shows how important the North American and EU sales are to the publishers 
+of games. A single plot with overlapping bars and color coded by region would be
+easier to read I think.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, Bivariate_Plots3.1}
+# Same as previous plot but with no limits set.
+p1 <- ggplot(aes(x = Platform, y = NA_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Platform, y = EU_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Platform, y = JP_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Platform, y = Other_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+Looking closer at the data for each region gives a clearer look at regional 
+platform preferences. The ratio of Nintendo games compared to other games is
+much bigger in Japan compared to other regions. And Microsoft seems to be fairly
+unimportant in Japan. However, Sony has a strong presence in all regions. I
+wonder what the mean sales looks like.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots4}
+# Boxplot of the Global_Sales of each platform.
+ggplot(aes(x = Platform, y = Global_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  coord_flip()
+```
+
+The upper end sales are making it difficult to see the sales' boxplots.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots5}
+# Same as previous plot but with limits set to 4.
+ggplot(aes(x = Platform, y = Global_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot()+
+  scale_y_continuous(limits = c(0, 4)) + #zoom in on boxes
+  coord_flip()
+```
+
+This is better, but I want to go even closer.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots6}
+# Same as previous plot but with the mean shown and limits set to 1.25.
+ggplot(aes(x = Platform, y = Global_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +#add a red mean dot
+  scale_y_continuous(limits = c(0, 1.25)) + #zoom in more
+  coord_flip()
+```
+
+I added a red dot to represent the mean. Compared to total sales, Nintendo seems
+to have a strong showing in the mean sales. Atari 2600, despite being so old,
+seems to also have a strong mean. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, Bivariate_Plots6.1}
+# Same as previous plot but for all regions.
+p1 <- ggplot(aes(x = Platform, y = NA_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 1.25)) +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Platform, y = EU_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.5)) +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Platform, y = JP_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 1.25)) +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Platform, y = Other_Sales), data = vgsales) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.25)) +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+It is interesting that the Atari 2600 has such a strong mean presence in the 
+North American market. Some other interesting data are the mean sales for the 
+NES, SNES and Game Boy compared to the other platforms in the Japanese market.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots7}
+# Box plot of the global sales for each platform maker.
+ggplot(aes(x = Platform_makers, y = Global_Sales), data = vgsales) +
+  geom_boxplot() +
+  coord_flip()
+  
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots8}
+# Same as previous plot but with limits set to 0.5.
+ggplot(aes(x = Platform_makers, y = Global_Sales), data = vgsales) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.5)) +
+  coord_flip()
+  
+```
+
+I'm surprised to see that Sony, Sega and Nintendo are neck and neck. Though I'm
+more surprised that Microsoft has a slight lead in mean and median sales.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots9}
+# Previous plot done for all regions
+p1 <- ggplot(aes(x = Platform_makers, y = NA_Sales), data = vgsales) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.25)) +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Platform_makers, y = EU_Sales), data = vgsales) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.25)) +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Platform_makers, y = JP_Sales), data = vgsales) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.25)) +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Platform_makers, y = Other_Sales), data = vgsales) +
+  geom_boxplot() +
+  stat_summary(fun.y = mean, color = 'red', geom = 'point') +
+  scale_y_continuous(limits = c(0, 0.25)) +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+These regional means are very surprising and a little suspicious. The mean of 
+Nintendo and Sony in Japan being so much lower than Sega is especially 
+suspicious. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots10}
+# Jitter plot of platform makers' sales in Japan
+ggplot(aes(x = Platform_makers, y = JP_Sales), data = vgsales) +
+  geom_jitter(alpha = 0.05) +
+  coord_flip()
+```
+
+It seems that while Sega has fewer titles, they are more concentrated than Sony
+or Nintendo. Which in turn is causing Sega's mean to be higher. 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots11}
+# Jitter plot of yearly global sales excluding the top 1%.
+ggplot(aes(x = Year, y = Global_Sales), 
+       data = subset(vgsales, 
+                     Global_Sales < quantile(vgsales$Global_Sales, 0.99))) +
+  geom_jitter(alpha = 0.09)
+  
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots12}
+# Jitter plot of yearly global sales for each region.
+p1 <- ggplot(aes(x = Year, y = NA_Sales), data = vgsales) +
+  geom_jitter(alpha = 0.09) +
+  scale_y_continuous(limits = c(0, 42))
+
+p2 <- ggplot(aes(x = Year, y = EU_Sales), data = vgsales) +
+  geom_jitter(alpha = 0.09) +
+  scale_y_continuous(limits = c(0, 42))
+
+p3 <- ggplot(aes(x = Year, y = JP_Sales), data = vgsales) +
+  geom_jitter(alpha = 0.09) +
+  scale_y_continuous(limits = c(0, 42))
+
+p4 <- ggplot(aes(x = Year, y = Other_Sales), data = vgsales) +
+  geom_jitter(alpha = 0.09) +
+  scale_y_continuous(limits = c(0, 42))
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+It is interesting the semi-uniformity of the sales in the North American and 
+Japanese regions while the EU and other regions lean more towards the 2000s and
+2010s. Though that would make sense if you take into account the increase of
+people that can now afford the luxury of buying videogames.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots13}
+# Bar plot of total global sales for each genre.
+ggplot(aes(x = Genre, y = Global_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots14}
+# Same plot done for each region.
+p1 <- ggplot(aes(x = Genre, y = NA_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Genre, y = EU_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Genre, y = JP_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Genre, y = Other_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+It is interesting that the ratio of total genre sales compared to one another is
+similar in each region except Japan. RPGs vastly outsell sports, shooters and
+action games, which are more popular in the other regions.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots16}
+# Bar plot of total global sales for each platform type.
+ggplot(aes(x = Platform_types, y = Global_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots17}
+# Same plot done for each region.
+p1 <- ggplot(aes(x = Platform_types, y = NA_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Platform_types, y = EU_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Platform_types, y = JP_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Platform_types, y = Other_Sales), data = vgsales) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+PC gaming seems to be a much smaller market in Japan compared to the other 
+platforms. It looks as though there were no PC sales in Japan, but according to
+the dataset, there were 0.17 million dollars worth of PC games sold in Japan.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plots18}
+# Bar plot of total global sales for each of the top 15 publishers.
+ggplot(aes(x = Top_Publishers, y = Global_Sales), 
+       data = subset(vgsales, Top_Publishers != 'Other 564 Publishers')) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height= 8, Bivariate_Plots19}
+# Same plot for each region.
+p1 <- ggplot(aes(x = Top_Publishers, y = NA_Sales), 
+             data = subset(vgsales, Top_Publishers != 'Other 564 Publishers')) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p2 <- ggplot(aes(x = Top_Publishers, y = EU_Sales), 
+             data = subset(vgsales, Top_Publishers != 'Other 564 Publishers')) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p3 <- ggplot(aes(x = Top_Publishers, y = JP_Sales), 
+             data = subset(vgsales, Top_Publishers != 'Other 564 Publishers')) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+p4 <- ggplot(aes(x = Top_Publishers, y = Other_Sales), 
+             data = subset(vgsales, Top_Publishers != 'Other 564 Publishers')) +
+  geom_bar(stat = "summary", fun.y = 'sum') +
+  coord_flip()
+
+grid.arrange(p1, p2, p3, p4, ncol = 2)
+```
+
+While Nintendo has strong sales in all regions, it seems to be without equal in
+Japan.
+
+
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. How did the feature(s) of interest vary with other features in \
+the dataset?
+
+Global sales correlated strongly with North American and EU sales.
+
+The ratio of total sales between categories within the platform, genre, platform
+type, top publishers, and platform makers share a similar bar pattern between
+the North American, EU and other regions. Japan seems to always have it's 
+own pattern.
+
+Within Japan, Japanese based publishers and platform makers seem to do better 
+overall than companies based from outside of Japan. On the other hand Microsoft 
+does very poorly in Japan.
+
+While the role-playing genre is 4th in sales globally, it is 6th in 'other' and
+7th in North America and the EU. However, it is 1st by a wide margin in Japan.
+Which probably contributes to its global prominence.
+
+The PC has almost no sales in Japan. And while handheld platform sales are about
+a quarter of TV platform sales in regions outside Japan, handheld is about
+two-thirds of TV with Japan.
+
+The only place that Nintendo is not the top publisher is in the 'other_sales'
+category. While Electronic Arts takes the top publisher spot in 'other_sales',
+it still retains a close second in North America and the EU. However, it is only
+a sliver in Japan.
+
+### Did you observe any interesting relationships between the other features \
+(not the main feature(s) of interest)?
+
+While the ratio of total sales in various categories tend to be very similar in
+regions outside Japan, the ratio of mean sales (at least for platform makers)
+seems to be more varied.
+
+### What was the strongest relationship you found?
+
+With a correlation coefficient of 0.941, as well as the total sales of any 
+variable being overwhelmingly higher in North America, North American sales
+really seem to have the strongest force on global sales.
+
+# Multivariate Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots1}
+# Create dataset grouped by Year, Genre and mean global sales. Then create a
+# line plot for each genre.
+vgsales_g <- subset(vgsales, Global_Sales > 0 & 
+                      Global_Sales < quantile(vgsales$Global_Sales, 0.99) & 
+                      Global_Sales > quantile(vgsales$Global_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(Global_Sales = mean(Global_Sales))
+
+ggplot(aes(y = Global_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4) +
+  ggtitle('Average Global Sales per Genre') +
+  ylab('Global Sales in Millions')
+```
+
+This plot shows the yearly mean of various genres excluding the lower and upper
+1% of global sales numbers when calculating the mean. I feel this exclusion 
+gives a more accurate view of the yearly mean sales.
+
+It seems that shooters, and to a lesser extent platformers and sports, are 
+making a slight resurgence.
+
+It also seems the early years of global video game sales had a much higher 
+average. I wonder if it has to do with market saturation. Because there seems to
+be more choices of games on the market now than in the past.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, Multivariate_Plots1.1}
+# Create dataset grouped by Year, Genre and n global sales. Then create a line
+# plot.
+vgsales_g <- subset(vgsales, Global_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(Global_Sales = length(Global_Sales))
+
+set3 <- colorRampPalette(brewer.pal('Set3', n = 13))
+
+ggplot(aes(color = Genre, x = Year, y = Global_Sales), data = vgsales_g) +
+  geom_line(size = 1) +
+  scale_color_manual(values = setNames(set3(14), levels(vgsales_g$Genre))) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  ggtitle('Total Number of Games Released Globally per Genre') +
+  ylab('Count')
+```
+
+This plot shows the total number of games that were released each year. It does
+seem to show that there was a greater saturation of games in the market,
+especially in the mid to late 2000s and early 2010s. It looks like there has 
+been a slight decline in all genres, except for action, in the past 6 years or
+so.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, Multivariate_Plots2}
+# Same plot as the plot two plots ago with the addition of a smooth line done 
+# for each region.
+vgsales_g <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+g1 <- ggplot(aes(y = NA_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 2.6)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4)
+
+vgsales_g <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+g2 <- ggplot(aes(y = EU_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 1.3)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4)
+
+vgsales_g <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+g3 <- ggplot(aes(y = JP_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 1.1)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4)
+
+vgsales_g <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+g4 <- ggplot(aes(y = Other_Sales, x = Year),data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4)
+
+grid.arrange(g1, g2, g3, g4, ncol = 2, 
+             top = textGrob('Average Sales per Region per Genre'),
+             left = textGrob('Sales in Millions', rot = 90))
+```
+
+It looks as though the 'Other' regions have been experiencing a growth in
+average sales for the past decade and a half. Which could be an indicator of
+future sales growth. To a lesser extent the EU has seen growth in some genres 
+while other genres have remained relatively steady. In North America, like the
+global sales, sales of genres such as shooters, platformers and sports are
+increasing ever so slightly. Every other genre is relatively steady. Finally in
+Japan it seems that the only sign of possible growth is in the puzzle genre. 
+Every other genre is remaining steady or declining. Especially the adventure and
+racing genres.
+
+I'm curious to compare platform type and maker to genre and year.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=10, Multivariate_Plots2.1}
+# A jitter plot looking at platform types by genre over the years.
+ggplot(aes(y = Genre, x = Year, size = Global_Sales, 
+           color = Platform_types), data = vgsales) +
+  scale_color_manual(values = c('Handheld' = 'red', 'PC' = 'yellow2',
+                                'TV_platform' = 'green')) +
+  geom_jitter(alpha = 0.5) +
+  guides(color = guide_legend(override.aes = list(alpha = 1, size = 5))) +
+  ggtitle('Global Sales of Platform Types by Genre and Year')
+```
+
+This plot really shows that the 2000s and 2010s are the era of handheld 
+platforms. There also seems to be a decent number of games with a higher global
+sales in the handheld category. Especially in the puzzle, platform and 
+role-playing genres. PC games, while much fewer than handheld and TV based 
+platforms, have a much larger showing in the strategy, shooter and simulation
+genres. The strategy genre seems to be the only genre with an almost even 
+balance between the three platform types.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=12, fig.width=10, Multivariate_Plots3}
+# Create dataset grouped by Year, Platform, Platform_types and mean global
+# sales. Then create line plots by platform maker.
+vgsales_p <- subset(vgsales, Global_Sales > 0 & 
+                      Global_Sales < quantile(vgsales$Global_Sales, 0.99) & 
+                      Global_Sales > quantile(vgsales$Global_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Global_Sales = mean(Global_Sales))
+
+p1 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Nintendo')) +
+  geom_line(size = 1) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 4.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+p2 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sony')) +
+  geom_line(size = 1) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 4.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+p3 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Microsoft')) +
+  geom_line(size = 1) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 4.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+p4 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sega')) +
+  geom_line(size = 1) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 4.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+p5 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 4.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash')) +
+  guides(color = guide_legend(order = 1),
+         linetype = guide_legend(order = 2))
+
+grid.arrange(p1, p2, p3, p4, p5, ncol = 2,
+             bottom = textGrob('Year'), 
+             left = textGrob("Global Sales in Millions", rot = 90),
+             top = textGrob("Average Global Sales per Platform"))
+```
+
+This is a plot of global mean game sales for each platform over the past few 
+decades. From this plot it seems to predict stronger average sales earlier in
+the platform's lifetime. Though some platforms, like the NES and Game Boy, have
+strong sales well into the middle part or later part of its lifetime.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, Multivariate_Plots4}
+# Same plot for Nintendo for each region.
+vgsales_p <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(y = NA_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Nintendo')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 2.1)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(y = EU_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Nintendo')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 1.0)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(y = JP_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Nintendo')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.9)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(y = Other_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Nintendo')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p1)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Nintendo's Average Sales per Platform per Region"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, Multivariate_Plots4.1}
+# Same plot for Sony for each region.
+vgsales_p <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(y = NA_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sony')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(y = EU_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sony')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.7)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(y = JP_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sony')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(y = Other_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sony')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.2)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p1)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Sony's Average Sales per Platform per Region"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, Multivariate_Plots4.2}
+# Same plot for Microsoft for each region.
+vgsales_p <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(y = NA_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Microsoft')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.8)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(y = EU_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Microsoft')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(y = JP_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Microsoft')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.2)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(y = Other_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Microsoft')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.1)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p1)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Microsoft's Average Sales per Platform per Region"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, Multivariate_Plots4.3}
+# Same plot for Sega for each region.
+vgsales_p <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(y = NA_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sega')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 1.9)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(y = EU_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sega')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 1.0)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(y = JP_Sales, x = Year, color = Platform), 
+             data = subset(vgsales_p, Platform_makers == 'Sega', Platform != 'Game Gear')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(y = Other_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Sega')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.2)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p1)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Sega's Average Sales per Platform per Region"))
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=6, fig.width=10, Multivariate_Plots4.4}
+# Same plot for Other for each region.
+vgsales_p <- subset(vgsales, 
+                    Global_Sales < quantile(vgsales$Global_Sales, 0.99) &
+                      Global_Sales > quantile(vgsales$Global_Sales, 0.01) &
+                      Platform != 'TG16') %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Global_Sales = mean(Global_Sales))
+
+vgsales_p.col <- rainbow(length(levels(vgsales_p$Platform)))
+names(vgsales_p.col) <- levels(vgsales_p$Platform)
+
+p0 <- ggplot(aes(y = Global_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_y_continuous(limits = c(0, 1.6)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_color_manual('Legend', values = vgsales_p.col, labels = platform_names, 
+                     breaks = platform_order_x) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(y = NA_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 1.6)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_color_manual('Legend', values = vgsales_p.col) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash'))
+
+vgsales_p <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(y = EU_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 1.2)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash')) +
+  scale_color_manual('Legend', values = vgsales_p.col)
+
+vgsales_p <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(y = JP_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash')) +
+  scale_color_manual('Legend', values = vgsales_p.col)
+
+vgsales_p <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Platform', 
+                      'Platform_types', 'Platform_makers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(y = Other_Sales, x = Year, 
+                 color = Platform, linetype = Platform_types), 
+             data = subset(vgsales_p, Platform_makers == 'Other')) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5))) +
+  scale_color_discrete(labels = platform_names, breaks = platform_order_x) +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  scale_linetype_manual(values = c('TV_platform' = 'solid', 
+                                   'Handheld' = 'dashed', 
+                                   'PC' = 'twodash')) +
+  scale_color_manual('Legend', values = vgsales_p.col)
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p0)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Other Platform Makers' Average Sales per Platform per Region"))
+```
+
+While overall the regional plots seem to follow the same pattern as the global
+sales, there are some interesting differences. The SNES had a longer lifetime in
+Japan compared to other regions. Also in Japan, compared to Japanese made 
+platforms, non-Japanese platforms seem to have weaker to no sales in Japan.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots5}
+# Create dataset grouped by Year, Platform_makers and total global sales. Then
+# create a line plot.
+vgsales_pm <- subset(vgsales, Global_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Platform_makers')) %>% 
+  summarize(Global_Sales = sum(Global_Sales))
+
+ggplot(aes(color = Platform_makers, x = Year, y = Global_Sales),
+       data = vgsales_pm) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+  
+```
+
+This plot shows the total global game sales for each year for each platform
+maker. Despite Nintendo having a longer history, games on Sony's platforms seem
+to have done better overall. Though Nintendo had a stronger peak in the late
+2000's.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plots6}
+# Same plot by region.
+vgsales_pm <- subset(vgsales, NA_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Platform_makers')) %>% 
+  summarize(NA_Sales = sum(NA_Sales))
+
+p1 <- ggplot(aes(color = Platform_makers, x = Year, y = NA_Sales),
+             data = vgsales_pm) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+
+vgsales_pm <- subset(vgsales, EU_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Platform_makers')) %>% 
+  summarize(EU_Sales = sum(EU_Sales))
+
+p2 <- ggplot(aes(color = Platform_makers, x = Year, y = EU_Sales),
+             data = vgsales_pm) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+
+vgsales_pm <- subset(vgsales, JP_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Platform_makers')) %>% 
+  summarize(JP_Sales = sum(JP_Sales))
+
+p3 <- ggplot(aes(color = Platform_makers, x = Year, y = JP_Sales),
+             data = vgsales_pm) +
+  geom_line(size = 1) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+
+vgsales_pm <- subset(vgsales, Other_Sales > 0) %>% 
+  group_by_(.dots = c('Year', 'Platform_makers')) %>% 
+  summarize(Other_Sales = sum(Other_Sales))
+
+p4 <- ggplot(aes(color = Platform_makers, x = Year, y = Other_Sales),
+             data = vgsales_pm) +
+  geom_line(size = 1) +
+  guides(color = guide_legend(override.aes = list(size = 5)))
+
+legend = gtable_filter(ggplot_gtable(ggplot_build(p1)), 'guide-box')
+
+grid.arrange(p1 + theme(legend.position = 'none'), 
+             p2 + theme(legend.position = 'none'), 
+             legend, 
+             p3 + theme(legend.position = 'none'), 
+             p4 + theme(legend.position = 'none'), ncol = 3,
+             left = textGrob("Sales in Millions", rot = 90),
+             top = textGrob("Average Sales per Platform Maker per Region"))
+```
+
+The Japanese plot shows how Japanese customers prefer games on Japanese 
+platforms. Microsoft seems to have no difficulty in regions outside Japan.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.width=10, Multivariate_Plots7}
+# Create dataset grouped by Year, Top_Publishers and mean global sales. Then
+# make line plots for each of the top 15 publishers.
+vgsales_tp <- subset(vgsales, 
+                     Global_Sales > 0 & 
+                       Global_Sales < quantile(vgsales$Global_Sales, 0.99)) %>% 
+  group_by_(.dots = c('Year', 'Top_Publishers')) %>% 
+  summarize(Global_Sales = mean(Global_Sales))
+
+ggplot(aes(x = Year, y = Global_Sales), data = vgsales_tp) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 4.5)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  facet_wrap( ~ Top_Publishers, ncol = 4) +
+  ggtitle('Average Global Sales of the Top 15 Game Publishers')
+```
+
+Of the top 15 most prolific game publishers, if one was to invest in some of
+them, it looks as though Electronic Arts, Nintendo, Sony and Take-Two 
+Interactive would be safe bets. Ubisoft and Warner Bros. also look like they are
+growing into strong companies as well.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=20, Multivariate_Plots8}
+# Same plot for each region.
+vgsales_tp <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99)) %>% 
+  group_by_(.dots = c('Year', 'Top_Publishers')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+p1 <- ggplot(aes(x = Year, y = NA_Sales), data = vgsales_tp) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 1.9)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  facet_wrap( ~ Top_Publishers, ncol = 4)
+
+vgsales_tp <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99)) %>% 
+  group_by_(.dots = c('Year', 'Top_Publishers')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+p2 <- ggplot(aes(x = Year, y = EU_Sales), data = vgsales_tp) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 1.4)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  facet_wrap( ~ Top_Publishers, ncol = 4)
+
+vgsales_tp <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99)) %>% 
+  group_by_(.dots = c('Year', 'Top_Publishers')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+p3 <- ggplot(aes(x = Year, y = JP_Sales), data = vgsales_tp) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 1.3)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  facet_wrap( ~ Top_Publishers, ncol = 4)
+
+vgsales_tp <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99)) %>% 
+  group_by_(.dots = c('Year', 'Top_Publishers')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+p4 <- ggplot(aes(x = Year, y = Other_Sales), data = vgsales_tp) +
+  geom_line() +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016)) +
+  facet_wrap( ~ Top_Publishers, ncol = 4)
+
+grid.arrange(p1, p2, p3, p4, ncol = 2,
+             left = textGrob('Sales in Millions', rot = 90),
+             top = textGrob('Average Regional Sales of the Top 15 Game Publishers'))
+```
+
+Publishers that seem to be growing, outside of Japan at least, are Activision, 
+Electronic Arts, Namco Bandai, Nintendo, Sony, Take-Two Interactive, Ubisoft and
+Warner Bros. Interestingly, within Japan, there does not seem to be as much 
+growth. Only Konami, Nintendo and Square Enix show signs of growth.
+
+Because this is a list of the top 15 publishers globally, if I had the time, I 
+would like to make a list of the top 15 publishers for each region.
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the \
+investigation. Were there features that strengthened each other in terms of \
+looking at your feature(s) of interest?
+
+When looking at the Japanese region, it seems that games published by Japanese 
+companies and/or games published on Japanese platforms seem to do much better
+sales. Also, total sales seem to be better in the 2000s. While average sales 
+seems to be stronger in the 1980s.
+
+### Were there any interesting or surprising interactions between features?
+
+Despite handheld platforms being available since the mid-late 1980s, it was 
+surprising to see that it didn't start rivaling TV platforms until the 2000s.
+
+### OPTIONAL: Did you create any models with your dataset? Discuss the \
+strengths and limitations of your model.
+
+I did not. I wish I had the time to.
+
+------
+
+# Final Plots and Summary
+
+### Plot One
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=5, Plot_One}
+# Histogram of Platform variable.
+qplot(vgsales$Platform) +
+  scale_x_discrete(limits = platform_order_y, labels = platform_names) +
+  scale_y_continuous(breaks = seq(0, 2200, 200)) +
+  xlab('Platforms') +
+  ylab('Number of Games') +
+  ggtitle('The Number of Games Published on Each Game Platform Globally') +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_flip()
+```
+
+### Description One
+
+It is amazing to see how popular the DS and PS2 platforms were for game 
+publishers. However, this plot shows the problem with the dataset. There are too
+few games. For example, a quick Google search shows there were 714 games 
+released on the NES. Yet the plot shows less than 100.
+
+### Plot Two
+```{r echo=FALSE, message=FALSE, warning=FALSE, Plot_Two}
+# Point plot showing correlation of global sales to each region's sales.
+p1 <- ggplot(aes(x = Global_Sales, y = NA_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + 
+  stat_cor(method = "pearson") + #show pearson correlation in plot
+  xlab('Global Sales') +
+  ylab('North American Sales')
+
+p2 <- ggplot(aes(x = Global_Sales, y = EU_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + 
+  stat_cor(method = "pearson") + #show pearson correlation in plot
+  xlab('Global Sales') +
+  ylab('European Sales')
+
+p3 <- ggplot(aes(x = Global_Sales, y = JP_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + 
+  stat_cor(method = "pearson") + #show pearson correlation in plot
+  xlab('Global Sales') +
+  ylab('Japanese Sales')
+
+p4 <- ggplot(aes(x = Global_Sales, y = Other_Sales), data = vgsales) +
+  geom_point(alpha = 0.1) +
+  geom_smooth() + 
+  stat_cor(method = "pearson") + #show pearson correlation in plot
+  xlab('Global Sales') +
+  ylab("Other Regions' Sales")
+
+grid.arrange(p1, p2, p3, p4, ncol = 2, top = textGrob('Correlation of Regional Sales to Global Sales (in Millions)', gp = gpar(fontsize = 15)))
+```
+
+### Description Two
+
+North American sales and, to a slightly lesser extent, European sales are 
+strongly correlated with global sales. I interpreted these correlations as game
+sales in these two regions having a strong effect on global sales figures. On
+the other hand, Japan seems to have little effect on global sales.
+
+### Plot Three
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, fig.height=8, fig.width=10, Plot_Three1}
+# Line plots of each genre for each region.
+vgsales_g <- subset(vgsales, NA_Sales > 0 & 
+                      NA_Sales < quantile(vgsales$NA_Sales, 0.99) & 
+                      NA_Sales > quantile(vgsales$NA_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(NA_Sales = mean(NA_Sales))
+
+g1 <- ggplot(aes(y = NA_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 2.6)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4) +
+  ylab('Sales in Millions') +
+  ggtitle('North America')
+
+vgsales_g <- subset(vgsales, EU_Sales > 0 & 
+                      EU_Sales < quantile(vgsales$EU_Sales, 0.99) & 
+                      EU_Sales > quantile(vgsales$EU_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(EU_Sales = mean(EU_Sales))
+
+g2 <- ggplot(aes(y = EU_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 1.3)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4) +
+  ylab('Sales in Millions') +
+  ggtitle('Europe')
+
+vgsales_g <- subset(vgsales, JP_Sales > 0 & 
+                      JP_Sales < quantile(vgsales$JP_Sales, 0.99) & 
+                      JP_Sales > quantile(vgsales$JP_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(JP_Sales = mean(JP_Sales))
+
+g3 <- ggplot(aes(y = JP_Sales, x = Year), data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 1.1)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4) +
+  ylab('Sales in Millions') +
+  ggtitle('Japan')
+
+vgsales_g <- subset(vgsales, Other_Sales > 0 & 
+                      Other_Sales < quantile(vgsales$Other_Sales, 0.99) & 
+                      Other_Sales > quantile(vgsales$Other_Sales, 0.01)) %>% 
+  group_by_(.dots = c('Year', 'Genre')) %>% 
+  summarize(Other_Sales = mean(Other_Sales))
+
+g4 <- ggplot(aes(y = Other_Sales, x = Year),data = vgsales_g) +
+  geom_line() +
+  geom_smooth(size = 0.1) +
+  scale_y_continuous(limits = c(0, 0.3)) +
+  scale_x_continuous(limits = c(1980, 2016), breaks = c(1980, 1995, 2010)) +
+  facet_wrap( ~ Genre, ncol = 4) +
+  ylab('Sales in Millions') +
+  ggtitle('Other Regions')
+
+grid.arrange(g1, g2, g3, g4, ncol = 2, 
+             top = textGrob('Average Regional Sales per Genre',
+                            gp = gpar(fontsize = 24)))
+```
+
+### Description Three
+
+Of all the plots I have looked at with this dataset, I think comparing regional
+differences has been the most interesting. This plot is the most clear example
+of this. North America's and Europe's lines follows similar patterns. And to a
+lesser extent, Other Regions' lines too. But Japan seems to follow its own 
+trends. The clearest example of this is comparing the average sales of 
+role-playing games in Japan to the other regions. My interpretation of this is
+that Japan is less influenced by outside markets than the other regions are. It
+is neither a strong influencer or infuencee.
+
+------
+
+# Reflection
+
+When looking for a dataset to work on, this dataset seemed to be a perfect fit
+for me. It was interesting, I have some background in the topic and it didn't 
+require too much cleaning to use. However, after creating my first few plots, I
+realized that there was a large problem with this dataset. It was incomplete. It
+is not even a very good sample of games released. For example, the Game Gear had
+363 games released worldwide. Yet there was only 1 game for the Game Gear in
+this dataset. A single game is not a good sample of 363 games.
+
+So why did I continue with this dataset? This project's main objective is to 
+'learn skills to frame and present data'. To complete that objective, this 
+dataset is sufficient. It has over 16,000 games with 14 variables (11 original
+variables and 3 additional variables I created). The only cleaning I had to do 
+to the dataset was to shift some rows that had not properly been created when
+running read.csv and fix an incorrect value.
+
+When creating different plots, I found the regional differences to be most 
+interesting. Since North America is the largest and strongest market, global 
+sales seemed to mirror any trends that appeared in the North American sales. And
+for whatever reason, the European and other region sales data also followed
+similar patterns as North America. But the most interesting region was Japan.
+It has the lowest correlation coefficient of the four regions when compared to 
+global sales. When looking at genre, platform, platform maker, etc., regions 
+outside Japan often looked similar visually. But Japan almost always seems to 
+follow its own trends.
+
+In the future, new sales variables that take inflation into account could return
+interesting results. A developer variable would also be interesting to look at.
+A more complete dataset, or at least one that represents a better sample, could
+possibly completely change all my conclusions reached here.
