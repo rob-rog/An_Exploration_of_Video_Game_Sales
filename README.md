@@ -1,6 +1,6 @@
 # An Exploration of Video Game Sales
 
-# テレビゲームの売り上げ調査
+# テレビゲームの売り上げ調査（英語のみ）
 
 #### A PDF of my Exploration:
 
